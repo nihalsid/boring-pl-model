@@ -1,34 +1,62 @@
 import os
+import random
+
 import torch
 from pytorch_lightning import LightningModule
 
-from integrations.lightning.boring_model import RandomDataset
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
-# some other options for random data
 from pytorch_lightning.callbacks import LearningRateMonitor
 
-from model.mlp import SimpleMLP
+from torchvision.models import resnet152
+
 
 tmpdir = os.getcwd()
 
-num_samples = 100000
-train = RandomDataset(32, num_samples)
-train = DataLoader(train, batch_size=32)
-val = RandomDataset(32, num_samples)
-val = DataLoader(val, batch_size=32)
-test = RandomDataset(32, num_samples)
-test = DataLoader(test, batch_size=32)
+num_samples = 1280
+max_on_gpu_samples = 64
+batch_size = 4
+mode = "GPUOnly"
+# mode = "CPU&GPU"
+
+
+class DummyDataset(torch.utils.data.Dataset):
+
+    def __len__(self):
+        return num_samples
+
+    def __getitem__(self, idx):
+        return []
+
+
+class RandomImageDataset(torch.utils.data.Dataset):
+
+    def __init__(self, h, w, length):
+        self.len = length
+        self.data = torch.randn(length, 3, h, w)
+
+    def __getitem__(self, index):
+        return self.data[index]
+
+    def __len__(self):
+        return self.len
+
+
+train = RandomImageDataset(224, 224, num_samples) if mode == "CPU&GPU" else DummyDataset()
+train = DataLoader(train, batch_size=batch_size, num_workers=8)
 
 
 class BoringModel(LightningModule):
 
     def __init__(self):
         super().__init__()
-        self.model = SimpleMLP(in_channels=32)
+        self.model = resnet152(pretrained=False)
+        # self.model = SimpleMLP(in_channels=32, num_mlp_layers=150)
+        self.register_buffer("batch", torch.randn([max_on_gpu_samples, batch_size, 3, 224, 224]))
 
     def forward(self, x):
-        return self.model(x)
+        x_in = x if mode == "CPU&GPU" else self.batch[random.randint(0, max_on_gpu_samples - 1)]
+        return self.model(x_in)
 
     @staticmethod
     def loss(batch, prediction):
@@ -36,7 +64,7 @@ class BoringModel(LightningModule):
         return torch.nn.functional.mse_loss(prediction, torch.ones_like(prediction))
 
     def training_step(self, batch, batch_idx):
-        output = self.model(batch)
+        output = self(batch)
         loss = self.loss(batch, output)
         return {"loss": loss}
 
@@ -47,7 +75,7 @@ class BoringModel(LightningModule):
         torch.stack([x["loss"] for x in outputs]).mean()
 
     def validation_step(self, batch, batch_idx):
-        output = self.model(batch)
+        output = self(batch)
         loss = self.loss(batch, output)
         return {"x": loss}
 
