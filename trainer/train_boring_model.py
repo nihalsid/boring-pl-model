@@ -15,7 +15,7 @@ tmpdir = os.getcwd()
 
 num_samples = 8192
 max_on_gpu_samples = 64
-batch_size = 4
+batch_size = 2
 mode = "GPUOnly"
 # mode = "CPU&GPU"
 
