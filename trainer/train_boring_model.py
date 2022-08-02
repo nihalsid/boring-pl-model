@@ -1,8 +1,10 @@
 import os
 import random
 
+import pytorch_lightning
 import torch
 from pytorch_lightning import LightningModule
+from pytorch_lightning.profiler import SimpleProfiler
 
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
@@ -18,6 +20,10 @@ max_on_gpu_samples = 64
 batch_size = 2
 mode = "GPUOnly"
 # mode = "CPU&GPU"
+
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.allow_tf32 = True
+torch.backends.cudnn.deterministic = False
 
 
 class DummyDataset(torch.utils.data.Dataset):
@@ -102,13 +108,17 @@ def run():
     model = BoringModel()
     lr_monitor = LearningRateMonitor(logging_interval='step')
 
+    profiler = SimpleProfiler(filename=f"run.pprof")
+    logger = pytorch_lightning.loggers.TensorBoardLogger(save_dir="logs/")
     # Initialize a trainer
     trainer = pl.Trainer(
         gpus=1,
-        max_epochs=10,
-        progress_bar_refresh_rate=20,
+        max_epochs=1,
+        progress_bar_refresh_rate=1,
         precision=32,
-        callbacks=[lr_monitor]
+        callbacks=[lr_monitor],
+        profiler=profiler,
+        logger=logger
     )
 
     # Train the model ⚡
