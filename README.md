@@ -6,10 +6,10 @@ Simple pytorch lightning boring model. Runs a resnet model on random junk data a
 # Installation
 
 ### With docker
-Build the image
+Build the image from the project root directory
 
 ```
-docker build --build-arg USER_ID=<Your unix id> --build-arg USER_NAME=<unix username> --platform=linux/x86_64 --tag <image tag> .
+docker build --platform=linux/x86_64 --tag boring_benchmark .
 ```
 
 ### Without docker
@@ -25,7 +25,7 @@ Install the requirements through pip. Additionally, you'd need to install `torch
 
 Standard docker run to execute the benchmark
 ```
-docker run --user <username> --privileged --gpus all -it --rm <image tag>
+docker run --privileged --gpus all -it --rm boring_benchmark
 ```
 
 ### Without docker
